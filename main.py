@@ -1,6 +1,14 @@
+"""
+Firewatch — wildfire early-warning console (Flet, pure Python).
 
+The simulation engine remains in simulation.py. This file is the Flet UI.
+Run:
+    pip install -r requirements.txt
+    flet run main.py
+"""
 
 import math
+import os
 from datetime import datetime
 
 import flet as ft
@@ -624,6 +632,8 @@ class FirewatchApp:
         self.page = page
         self.sim = Simulation()
         self.showing_public = False
+        self.running = True
+        page.on_close = self.stop
 
         page.title = "Firewatch — Live Detection Console"
         page.bgcolor = BG
@@ -767,11 +777,20 @@ class FirewatchApp:
             spacing=14,
         )
 
+    def stop(self, e=None):
+        self.running = False
+
     async def timer_loop(self):
-        while True:
+        while self.running:
             await self._sleep(TICK_SECONDS)
-            self.sim.tick()
-            self.refresh()
+            if not self.running:
+                break
+            try:
+                self.sim.tick()
+                self.refresh()
+            except Exception:
+                # The session was closed (visitor left); stop ticking.
+                self.running = False
 
     async def _sleep(self, seconds):
         import asyncio
@@ -862,4 +881,10 @@ def main(page: ft.Page):
 
 
 if __name__ == "__main__":
-    ft.run(main)
+    port = os.environ.get("PORT")
+    if port:
+        # Hosted (Render, Railway, etc. set PORT): serve as a web app.
+        ft.run(main, view=ft.AppView.WEB_BROWSER, host="0.0.0.0", port=int(port))
+    else:
+        # Local: open the desktop window.
+        ft.run(main)
